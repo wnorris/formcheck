@@ -139,11 +139,6 @@ function showLoading(show, progress = 0) {
 function createFramePair(frameNumber) {
   const div = document.createElement('div');
   div.className = 'frame-pair';
-  
-  const numberDiv = document.createElement('div');
-  numberDiv.className = 'frame-number';
-  numberDiv.textContent = `#${frameNumber}`;
-  div.appendChild(numberDiv);
 
   const frameCanvas = document.createElement('canvas');
   frameCanvas.width = 400;
@@ -161,25 +156,20 @@ function createFramePair(frameNumber) {
 function drawPose(pose, ctx) {
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   
-  // Modern color scheme
   const colors = {
-    rightArm: {
-      joint: 'rgba(255, 107, 107, 0.8)', // Soft red
-      line: 'rgba(255, 107, 107, 0.6)'
+    rightSide: {
+      solid: '#FF6CD6', // Solid neon pink
+      glow: 'rgba(255, 108, 214, 0.2)'
     },
     body: {
-      joint: 'rgba(100, 149, 237, 0.8)', // Soft blue
-      line: 'rgba(100, 149, 237, 0.6)'
+      solid: '#40E0D0', // Solid turquoise
+      glow: 'rgba(64, 224, 208, 0.2)'
     }
   };
 
-  // Define connections with color groups
-  const connections = [
-    // Right arm (red)
-    { points: ['right_shoulder', 'right_elbow'], group: 'rightArm' },
-    { points: ['right_elbow', 'right_wrist'], group: 'rightArm' },
-    
-    // Rest of body (blue)
+  // Split connections into body and right arm for layered drawing
+  const bodyConnections = [
+    // Body
     { points: ['nose', 'left_eye'], group: 'body' },
     { points: ['left_eye', 'left_ear'], group: 'body' },
     { points: ['nose', 'right_eye'], group: 'body' },
@@ -193,57 +183,97 @@ function drawPose(pose, ctx) {
     { points: ['left_hip', 'left_knee'], group: 'body' },
     { points: ['left_knee', 'left_ankle'], group: 'body' },
     { points: ['right_hip', 'right_knee'], group: 'body' },
-    { points: ['right_knee', 'right_ankle'], group: 'body' }
+    { points: ['right_knee', 'right_ankle'], group: 'body' },
+    // Complete foot connections
+    { points: ['left_ankle', 'left_heel'], group: 'body' },
+    { points: ['left_heel', 'left_foot_index'], group: 'body' },
+    { points: ['left_ankle', 'left_foot_index'], group: 'body' },
+    { points: ['right_ankle', 'right_heel'], group: 'body' },
+    { points: ['right_heel', 'right_foot_index'], group: 'body' },
+    { points: ['right_ankle', 'right_foot_index'], group: 'body' }
   ];
 
-  // Draw skeleton with glow effect
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
+  const rightArmConnections = [
+    { points: ['right_shoulder', 'right_elbow'], group: 'rightSide' },
+    { points: ['right_elbow', 'right_wrist'], group: 'rightSide' },
+    { points: ['right_wrist', 'right_pinky'], group: 'rightSide' },
+    { points: ['right_wrist', 'right_index'], group: 'rightSide' },
+    { points: ['right_wrist', 'right_thumb'], group: 'rightSide' },
+    { points: ['right_pinky', 'right_index'], group: 'rightSide' },
+    { points: ['right_index', 'right_thumb'], group: 'rightSide' }
+  ];
 
-  // Draw connections
-  for (const connection of connections) {
-    const [first, second] = connection.points;
-    const firstPoint = pose.keypoints.find(kp => kp.name === first);
-    const secondPoint = pose.keypoints.find(kp => kp.name === second);
-    const colorGroup = colors[connection.group];
-    
-    if (firstPoint && secondPoint && 
-        firstPoint.score > 0.3 && secondPoint.score > 0.3) {
-      // Draw glow effect
-      ctx.beginPath();
-      ctx.strokeStyle = colorGroup.line;
-      ctx.lineWidth = 8;
-      ctx.moveTo(firstPoint.x, firstPoint.y);
-      ctx.lineTo(secondPoint.x, secondPoint.y);
-      ctx.stroke();
+  function drawConnections(connections) {
+    for (const connection of connections) {
+      const [first, second] = connection.points;
+      const firstPoint = pose.keypoints.find(kp => kp.name === first);
+      const secondPoint = pose.keypoints.find(kp => kp.name === second);
+      const colorGroup = colors[connection.group];
+      
+      if (firstPoint && secondPoint && 
+          firstPoint.score > 0.3 && secondPoint.score > 0.3) {
+        // Draw glow
+        ctx.beginPath();
+        ctx.strokeStyle = colorGroup.glow;
+        ctx.lineWidth = 12;
+        ctx.lineCap = 'round';
+        ctx.moveTo(firstPoint.x, firstPoint.y);
+        ctx.lineTo(secondPoint.x, secondPoint.y);
+        ctx.stroke();
 
-      // Draw main line
-      ctx.beginPath();
-      ctx.strokeStyle = colorGroup.joint;
-      ctx.lineWidth = 3;
-      ctx.moveTo(firstPoint.x, firstPoint.y);
-      ctx.lineTo(secondPoint.x, secondPoint.y);
-      ctx.stroke();
+        // Draw solid line
+        ctx.beginPath();
+        ctx.strokeStyle = colorGroup.solid;
+        ctx.lineWidth = 3;
+        ctx.moveTo(firstPoint.x, firstPoint.y);
+        ctx.lineTo(secondPoint.x, secondPoint.y);
+        ctx.stroke();
+      }
     }
   }
 
-  // Draw keypoints with glow
-  for (const keypoint of pose.keypoints) {
-    if (keypoint.score > 0.3) {
-      const isRightArm = ['right_shoulder', 'right_elbow', 'right_wrist'].includes(keypoint.name);
-      const colorGroup = isRightArm ? colors.rightArm : colors.body;
+  function drawKeypoints(isRightSide) {
+    for (const keypoint of pose.keypoints) {
+      if (keypoint.score > 0.3) {
+        const isRightArm = [
+          'right_shoulder', 
+          'right_elbow', 
+          'right_wrist',
+          'right_pinky',
+          'right_index',
+          'right_thumb'
+        ].includes(keypoint.name);
+        
+        if (isRightArm === isRightSide) {
+          const colorGroup = isRightArm ? colors.rightSide : colors.body;
+          
+          // Draw glow
+          ctx.beginPath();
+          ctx.fillStyle = colorGroup.glow;
+          ctx.arc(keypoint.x, keypoint.y, 8, 0, 2 * Math.PI);
+          ctx.fill();
 
-      // Draw glow
-      ctx.beginPath();
-      ctx.fillStyle = colorGroup.line;
-      ctx.arc(keypoint.x, keypoint.y, 6, 0, 2 * Math.PI);
-      ctx.fill();
-
-      // Draw point
-      ctx.beginPath();
-      ctx.fillStyle = colorGroup.joint;
-      ctx.arc(keypoint.x, keypoint.y, 3, 0, 2 * Math.PI);
-      ctx.fill();
+          // Draw solid point
+          ctx.beginPath();
+          ctx.fillStyle = colorGroup.solid;
+          ctx.arc(keypoint.x, keypoint.y, 3, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+      }
     }
   }
+
+  // Add shadow effect
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+  ctx.shadowBlur = 15;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+
+  // Draw body first
+  drawConnections(bodyConnections);
+  drawKeypoints(false);
+
+  // Draw right arm on top
+  drawConnections(rightArmConnections);
+  drawKeypoints(true);
 }
