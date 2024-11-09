@@ -1,15 +1,11 @@
 let detector;
-let allPoses = [];
 
 document.addEventListener('DOMContentLoaded', () => {
-  const video = document.getElementById('video');
-  const poseCanvas = document.getElementById('poseCanvas');
   const videoUpload = document.getElementById('videoUpload');
+  const framesContainer = document.getElementById('framesContainer');
   const loadingIndicator = document.getElementById('loadingIndicator');
   const progressFill = document.getElementById('progressFill');
   const progressText = document.getElementById('progressText');
-  
-  const poseCtx = poseCanvas.getContext('2d');
 
   async function initPoseDetection() {
     showLoading(true, 0);
@@ -34,53 +30,30 @@ document.addEventListener('DOMContentLoaded', () => {
     progressText.textContent = `Processing frames: ${Math.round(progress)}%`;
   }
 
-  async function processAllFrames() {
-    allPoses = [];
-    const frameCount = Math.floor(video.duration * 30); // Assuming 30fps
+  function createFramePair(frameNumber) {
+    const div = document.createElement('div');
+    div.className = 'frame-pair';
     
-    // Create an offscreen canvas for frame extraction
-    const offscreenCanvas = document.createElement('canvas');
-    offscreenCanvas.width = video.videoWidth;
-    offscreenCanvas.height = video.videoHeight;
-    const offscreenCtx = offscreenCanvas.getContext('2d');
-    
-    for (let i = 0; i < frameCount; i++) {
-      video.currentTime = i / 30;
-      
-      await new Promise(resolve => {
-        video.onseeked = () => {
-          // Draw the frame to offscreen canvas
-          offscreenCtx.drawImage(video, 0, 0);
-          resolve();
-        };
-      });
+    const numberDiv = document.createElement('div');
+    numberDiv.className = 'frame-number';
+    numberDiv.textContent = `#${frameNumber}`;
+    div.appendChild(numberDiv);
 
-      try {
-        const poses = await detector.estimatePoses(offscreenCanvas, {
-          maxPoses: 1,
-          flipHorizontal: false,
-          scoreThreshold: 0.3
-        });
-        
-        if (poses.length > 0) {
-          allPoses[i] = poses[0];
-          console.log(`Frame ${i}: Pose detected`, poses[0]);
-        }
-        
-        const progress = (i / frameCount) * 100;
-        showLoading(true, progress);
-      } catch (error) {
-        console.error('Error processing frame:', error);
-      }
-    }
-    
-    showLoading(false);
-    return allPoses;
+    const frameCanvas = document.createElement('canvas');
+    frameCanvas.width = 400;
+    frameCanvas.height = 300;
+    div.appendChild(frameCanvas);
+
+    const poseCanvas = document.createElement('canvas');
+    poseCanvas.width = 400;
+    poseCanvas.height = 300;
+    div.appendChild(poseCanvas);
+
+    return { div, frameCanvas, poseCanvas };
   }
 
   function drawPose(pose, ctx) {
-    // Clear canvas
-    ctx.clearRect(0, 0, poseCanvas.width, poseCanvas.height);
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     
     // Draw keypoints
     for (const keypoint of pose.keypoints) {
@@ -130,42 +103,63 @@ document.addEventListener('DOMContentLoaded', () => {
 
   videoUpload.addEventListener('change', async (e) => {
     const file = e.target.files[0];
+    const video = document.createElement('video');
     video.src = URL.createObjectURL(file);
     
-    video.onloadeddata = async () => {
-      // Wait for video to be fully loaded
-      await new Promise(resolve => {
+    await new Promise(resolve => {
+      video.onloadeddata = () => {
         if (video.readyState >= 3) {
           resolve();
-        } else {
-          video.addEventListener('canplay', () => resolve());
         }
+      };
+      video.load();
+    });
+
+    if (!detector) {
+      await initPoseDetection();
+    }
+
+    // Clear previous frames
+    framesContainer.innerHTML = '';
+    
+    const fps = 30;
+    const frameCount = Math.floor(video.duration * fps);
+    const frameStep = Math.max(1, Math.floor(frameCount / 50)); // Max 50 frames
+    
+    for (let i = 0; i < frameCount; i += frameStep) {
+      video.currentTime = i / fps;
+      
+      await new Promise(resolve => {
+        video.onseeked = resolve;
       });
 
-      // Set canvas size to match video
-      poseCanvas.width = video.videoWidth;
-      poseCanvas.height = video.videoHeight;
+      const { div, frameCanvas, poseCanvas } = createFramePair(i);
+      framesContainer.appendChild(div);
 
-      if (!detector) {
-        await initPoseDetection();
+      // Draw video frame
+      const frameCtx = frameCanvas.getContext('2d');
+      frameCtx.drawImage(video, 0, 0, frameCanvas.width, frameCanvas.height);
+
+      // Detect and draw pose
+      try {
+        const poses = await detector.estimatePoses(frameCanvas, {
+          maxPoses: 1,
+          flipHorizontal: false,
+          scoreThreshold: 0.3
+        });
+        
+        if (poses.length > 0) {
+          drawPose(poses[0], poseCanvas.getContext('2d'));
+        }
+        
+        const progress = (i / frameCount) * 100;
+        showLoading(true, progress);
+      } catch (error) {
+        console.error('Error processing frame:', error);
       }
-      
-      // Process all frames
-      video.pause();
-      await processAllFrames();
-      
-      // Add timeupdate listener to draw poses during playback
-      video.addEventListener('timeupdate', () => {
-        const currentFrame = Math.floor(video.currentTime * 30);
-        console.log('Current frame:', currentFrame, 'Pose:', allPoses[currentFrame]);
-        if (allPoses[currentFrame]) {
-          drawPose(allPoses[currentFrame], poseCtx);
-        }
-        console.log('Video time:', video.currentTime, 'Frame:', currentFrame);
-      });
-      
-      // Ready to play
-      video.currentTime = 0;
-    };
+    }
+    
+    showLoading(false);
+    URL.revokeObjectURL(video.src);
   });
 });
