@@ -51,11 +51,21 @@ document.addEventListener('DOMContentLoaded', () => {
     // Show frame selector and setup preview
     frameSelector.classList.remove('hidden');
     previewVideo.src = URL.createObjectURL(file);
+    
+    // Set playback speed to 0.25x
+    previewVideo.playbackRate = 0.25;
 
     previewVideo.onerror = (e) => {
       console.error('Error loading video:', e);
       alert('Error loading video. Please try another file.');
     };
+  });
+
+  previewVideo.addEventListener('ratechange', () => {
+    // Force 0.25x speed if it gets reset
+    if (previewVideo.playbackRate !== 0.25) {
+      previewVideo.playbackRate = 0.25;
+    }
   });
 });
 
@@ -140,15 +150,65 @@ function createFramePair(frameNumber) {
   const div = document.createElement('div');
   div.className = 'frame-pair';
 
+  // Create canvas container
+  const canvasContainer = document.createElement('div');
+  canvasContainer.className = 'canvas-container';
+
   const frameCanvas = document.createElement('canvas');
   frameCanvas.width = 400;
   frameCanvas.height = 300;
-  div.appendChild(frameCanvas);
-
+  frameCanvas.style.opacity = '1';
+  
   const poseCanvas = document.createElement('canvas');
   poseCanvas.width = 400;
   poseCanvas.height = 300;
-  div.appendChild(poseCanvas);
+  poseCanvas.style.opacity = '1';
+
+  canvasContainer.appendChild(frameCanvas);
+  canvasContainer.appendChild(poseCanvas);
+  div.appendChild(canvasContainer);
+
+  // Create opacity controls
+  const opacityControls = document.createElement('div');
+  opacityControls.className = 'opacity-controls';
+
+  // Frame opacity slider
+  const frameSlider = document.createElement('div');
+  frameSlider.className = 'opacity-slider';
+  const frameLabel = document.createElement('label');
+  frameLabel.textContent = 'Frame Opacity';
+  const frameInput = document.createElement('input');
+  frameInput.type = 'range';
+  frameInput.min = '0';
+  frameInput.max = '1';
+  frameInput.step = '0.1';
+  frameInput.value = '1';
+  frameInput.addEventListener('input', () => {
+    frameCanvas.style.opacity = frameInput.value;
+  });
+  frameSlider.appendChild(frameLabel);
+  frameSlider.appendChild(frameInput);
+
+  // Pose opacity slider
+  const poseSlider = document.createElement('div');
+  poseSlider.className = 'opacity-slider';
+  const poseLabel = document.createElement('label');
+  poseLabel.textContent = 'Skeleton Opacity';
+  const poseInput = document.createElement('input');
+  poseInput.type = 'range';
+  poseInput.min = '0';
+  poseInput.max = '1';
+  poseInput.step = '0.1';
+  poseInput.value = '1';
+  poseInput.addEventListener('input', () => {
+    poseCanvas.style.opacity = poseInput.value;
+  });
+  poseSlider.appendChild(poseLabel);
+  poseSlider.appendChild(poseInput);
+
+  opacityControls.appendChild(frameSlider);
+  opacityControls.appendChild(poseSlider);
+  div.appendChild(opacityControls);
 
   return { div, frameCanvas, poseCanvas };
 }

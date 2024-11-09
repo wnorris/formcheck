@@ -24,13 +24,42 @@ body {
   display: flex;
   gap: 20px;
   align-items: center;
+  position: relative;
 }
 
-canvas {
-  border: 1px solid #333;
+.canvas-container {
+  position: relative;
   width: 400px;
   height: 300px;
-  background-color: #2a2a2a;
+}
+
+.canvas-container canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.opacity-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-left: 20px;
+}
+
+.opacity-slider {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.opacity-slider label {
+  font-size: 14px;
+  color: #fff;
+}
+
+.opacity-slider input[type="range"] {
+  width: 150px;
+  accent-color: #40E0D0;
 }
 
 .loading-indicator {
