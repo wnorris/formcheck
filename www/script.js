@@ -1,126 +1,297 @@
 let detector = null;
-let startFrameNum = null;
-let endFrameNum = null;
+let startFrameNum1 = null, endFrameNum1 = null;
+let startFrameNum2 = null, endFrameNum2 = null;
+let video1Ready = false, video2Ready = false;
 
 document.addEventListener('DOMContentLoaded', () => {
-  const videoUpload = document.getElementById('videoUpload');
-  const frameSelector = document.getElementById('frameSelector');
-  const previewVideo = document.getElementById('previewVideo');
-  const setStartBtn = document.getElementById('setStartBtn');
-  const setEndBtn = document.getElementById('setEndBtn');
+  setupVideoUpload(1);
+  setupVideoUpload(2);
+  
   const processBtn = document.getElementById('processBtn');
-  const startFrameSpan = document.getElementById('startFrame');
-  const endFrameSpan = document.getElementById('endFrame');
-  const framesContainer = document.getElementById('framesContainer');
-  
-  function updateProcessButton() {
-    processBtn.disabled = startFrameNum === null || endFrameNum === null;
-  }
-  
-  setStartBtn.addEventListener('click', () => {
-    startFrameNum = Math.floor(previewVideo.currentTime * 30);
-    startFrameSpan.textContent = startFrameNum;
-    updateProcessButton();
-  });
-  
-  setEndBtn.addEventListener('click', () => {
-    endFrameNum = Math.floor(previewVideo.currentTime * 30);
-    endFrameSpan.textContent = endFrameNum;
-    updateProcessButton();
-  });
-  
   processBtn.addEventListener('click', async () => {
-    if (startFrameNum === null || endFrameNum === null) return;
-    
-    frameSelector.classList.add('hidden');
-    await processFrameRange(previewVideo, startFrameNum, endFrameNum);
+    await processVideos();
   });
+});
+
+function setupVideoUpload(videoNum) {
+  const videoUpload = document.getElementById(`videoUpload${videoNum}`);
+  const frameSelector = document.getElementById(`frameSelector${videoNum}`);
+  const previewVideo = document.getElementById(`previewVideo${videoNum}`);
+  const setStartBtn = document.getElementById(`setStartBtn${videoNum}`);
+  const setEndBtn = document.getElementById(`setEndBtn${videoNum}`);
+  const startFrameSpan = document.getElementById(`startFrame${videoNum}`);
+  const endFrameSpan = document.getElementById(`endFrame${videoNum}`);
 
   videoUpload.addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     
-    // Reset state
-    startFrameNum = null;
-    endFrameNum = null;
-    startFrameSpan.textContent = 'Not set';
-    endFrameSpan.textContent = 'Not set';
-    processBtn.disabled = true;
-    framesContainer.innerHTML = '';
-    
-    // Show frame selector and setup preview
+    resetVideoState(videoNum);
     frameSelector.classList.remove('hidden');
     previewVideo.src = URL.createObjectURL(file);
-    
-    // Set playback speed to 0.25x
     previewVideo.playbackRate = 0.25;
 
-    previewVideo.onerror = (e) => {
-      console.error('Error loading video:', e);
-      alert('Error loading video. Please try another file.');
-    };
-  });
-
-  previewVideo.addEventListener('ratechange', () => {
-    // Force 0.25x speed if it gets reset
-    if (previewVideo.playbackRate !== 0.25) {
-      previewVideo.playbackRate = 0.25;
-    }
-  });
-});
-
-async function processFrameRange(video, startFrame, endFrame) {
-  showLoading(true, 0);
-  
-  if (!detector) {
-    try {
-      await initPoseDetection();
-    } catch (error) {
-      showLoading(false);
-      console.error('Failed to initialize pose detection:', error);
-      return;
-    }
-  }
-
-  const frameCount = endFrame - startFrame;
-  const frameStep = Math.max(1, Math.floor(frameCount / 50)); // Max 50 frames
-  
-  for (let i = startFrame; i <= endFrame; i += frameStep) {
-    video.currentTime = i / 30;
-    
+    // Wait for video metadata to load
     await new Promise(resolve => {
-      video.onseeked = resolve;
+      previewVideo.onloadedmetadata = resolve;
     });
 
-    const { div, frameCanvas, poseCanvas } = createFramePair(i);
-    framesContainer.appendChild(div);
-
-    const frameCtx = frameCanvas.getContext('2d');
-    frameCtx.drawImage(video, 0, 0, frameCanvas.width, frameCanvas.height);
-
-    try {
-      const poses = await detector.estimatePoses(frameCanvas, {
-        maxPoses: 1,
-        flipHorizontal: false,
-        scoreThreshold: 0.3
-      });
-      
-      if (poses.length > 0) {
-        drawPose(poses[0], poseCanvas.getContext('2d'));
-      }
-      
-      const progress = ((i - startFrame) / frameCount) * 100;
-      showLoading(true, progress);
-    } catch (error) {
-      console.error('Error processing frame:', error);
+    // Set default start/end frames
+    if (videoNum === 1) {
+      startFrameNum1 = 0;
+      endFrameNum1 = Math.floor(previewVideo.duration * 30) - 1;
+      startFrameSpan.textContent = startFrameNum1;
+      endFrameSpan.textContent = endFrameNum1;
+    } else {
+      startFrameNum2 = 0;
+      endFrameNum2 = Math.floor(previewVideo.duration * 30) - 1;
+      startFrameSpan.textContent = startFrameNum2;
+      endFrameSpan.textContent = endFrameNum2;
     }
+    
+    updateProcessButton();
+  });
+
+  setStartBtn.addEventListener('click', () => {
+    if (videoNum === 1) {
+      startFrameNum1 = Math.floor(previewVideo.currentTime * 30);
+      startFrameSpan.textContent = startFrameNum1;
+    } else {
+      startFrameNum2 = Math.floor(previewVideo.currentTime * 30);
+      startFrameSpan.textContent = startFrameNum2;
+    }
+    updateProcessButton();
+  });
+
+  setEndBtn.addEventListener('click', () => {
+    if (videoNum === 1) {
+      endFrameNum1 = Math.floor(previewVideo.currentTime * 30);
+      endFrameSpan.textContent = endFrameNum1;
+    } else {
+      endFrameNum2 = Math.floor(previewVideo.currentTime * 30);
+      endFrameSpan.textContent = endFrameNum2;
+    }
+    updateProcessButton();
+  });
+}
+
+function createComparisonFrame(frameNum) {
+  const div = document.createElement('div');
+  div.className = 'frame-pair';
+
+  const comparisonContainer = document.createElement('div');
+  comparisonContainer.className = 'comparison-container';
+
+  const canvasContainer = document.createElement('div');
+  canvasContainer.className = 'canvas-container';
+
+  // Create canvases for both videos
+  const frame1Canvas = document.createElement('canvas');
+  const frame2Canvas = document.createElement('canvas');
+  const pose1Canvas = document.createElement('canvas');
+  const pose2Canvas = document.createElement('canvas');
+
+  // Set initial properties for all canvases
+  [frame1Canvas, frame2Canvas, pose1Canvas, pose2Canvas].forEach(canvas => {
+    canvas.width = 400;
+    canvas.height = 300;
+    canvas.style.position = 'absolute';
+    canvas.style.top = '0';
+    canvas.style.left = '0';
+  });
+
+  // Set initial opacities
+  frame1Canvas.style.opacity = '0.5';
+  frame2Canvas.style.opacity = '0.5';
+  pose1Canvas.style.opacity = '1';
+  pose2Canvas.style.opacity = '1';
+
+  // Set z-index to ensure poses are on top
+  frame1Canvas.style.zIndex = '1';
+  frame2Canvas.style.zIndex = '2';
+  pose1Canvas.style.zIndex = '3';
+  pose2Canvas.style.zIndex = '4';
+
+  // Add canvases in the correct order
+  canvasContainer.append(frame1Canvas, frame2Canvas, pose1Canvas, pose2Canvas);
+  comparisonContainer.appendChild(canvasContainer);
+
+  // Create opacity controls for all layers
+  const opacityControls = createOpacityControls([
+    { label: 'Video 1 Frame', canvas: frame1Canvas, defaultValue: 0.5 },
+    { label: 'Video 2 Frame', canvas: frame2Canvas, defaultValue: 0.5 },
+    { label: 'Video 1 Skeleton', canvas: pose1Canvas, defaultValue: 1.0 },
+    { label: 'Video 2 Skeleton', canvas: pose2Canvas, defaultValue: 1.0 }
+  ]);
+
+  div.append(comparisonContainer, opacityControls);
+
+  return {
+    div,
+    frame1Canvas,
+    pose1Canvas,
+    frame2Canvas,
+    pose2Canvas
+  };
+}
+
+function createOpacityControls(layers) {
+  const controls = document.createElement('div');
+  controls.className = 'opacity-controls';
+
+  layers.forEach(layer => {
+    const slider = document.createElement('div');
+    slider.className = 'opacity-slider';
+    
+    const label = document.createElement('label');
+    label.textContent = layer.label;
+    
+    const input = document.createElement('input');
+    input.type = 'range';
+    input.min = '0';
+    input.max = '1';
+    input.step = '0.1';
+    input.value = layer.defaultValue;
+    input.addEventListener('input', () => {
+      layer.canvas.style.opacity = input.value;
+    });
+
+    slider.append(label, input);
+    controls.appendChild(slider);
+  });
+
+  return controls;
+}
+
+async function processVideos() {
+  const framesContainer = document.getElementById('framesContainer');
+  framesContainer.innerHTML = '';
+  showLoading(true, 0);
+
+  try {
+    if (!detector) {
+      await initPoseDetection();
+    }
+
+    const video1 = document.getElementById('previewVideo1');
+    const video2 = document.getElementById('previewVideo2');
+
+    // Calculate frame steps to roughly align the videos
+    const frameCount1 = endFrameNum1 - startFrameNum1;
+    const frameCount2 = endFrameNum2 - startFrameNum2;
+    const totalFrames = Math.min(50, Math.min(frameCount1, frameCount2));
+    const step1 = frameCount1 / totalFrames;
+    const step2 = frameCount2 / totalFrames;
+
+    for (let i = 0; i < totalFrames; i++) {
+      const frame1 = Math.floor(startFrameNum1 + (i * step1));
+      const frame2 = Math.floor(startFrameNum2 + (i * step2));
+
+      const { div, frame1Canvas, pose1Canvas, frame2Canvas, pose2Canvas } = 
+        createComparisonFrame(i);
+      framesContainer.appendChild(div);
+
+      // Process both videos
+      await Promise.all([
+        processVideoFrame(video1, frame1, frame1Canvas, pose1Canvas),
+        processVideoFrame(video2, frame2, frame2Canvas, pose2Canvas)
+      ]);
+
+      const progress = ((i + 1) / totalFrames) * 100;
+      showLoading(true, progress);
+    }
+  } catch (error) {
+    console.error('Error processing videos:', error);
+    alert('An error occurred while processing the videos. Please try again.');
+  } finally {
+    showLoading(false);
   }
+}
+
+async function processVideoFrame(video, frameNum, frameCanvas, poseCanvas) {
+  video.currentTime = frameNum / 30;
+  await new Promise(resolve => {
+    video.onseeked = resolve;
+  });
+
+  const frameCtx = frameCanvas.getContext('2d');
+  frameCtx.drawImage(video, 0, 0, frameCanvas.width, frameCanvas.height);
+
+  try {
+    const poses = await detector.estimatePoses(frameCanvas, {
+      maxPoses: 1,
+      flipHorizontal: false,
+      scoreThreshold: 0.3
+    });
+    
+    if (poses.length > 0) {
+      drawPose(poses[0], poseCanvas.getContext('2d'));
+    }
+  } catch (error) {
+    console.error('Error processing frame:', error);
+  }
+}
+
+function updateProcessButton() {
+  const processBtn = document.getElementById('processBtn');
+  processBtn.disabled = !(
+    startFrameNum1 !== null && 
+    endFrameNum1 !== null && 
+    startFrameNum2 !== null && 
+    endFrameNum2 !== null
+  );
+}
+
+function resetVideoState(videoNum) {
+  if (videoNum === 1) {
+    startFrameNum1 = null;
+    endFrameNum1 = null;
+    document.getElementById('startFrame1').textContent = 'Not set';
+    document.getElementById('endFrame1').textContent = 'Not set';
+  } else {
+    startFrameNum2 = null;
+    endFrameNum2 = null;
+    document.getElementById('startFrame2').textContent = 'Not set';
+    document.getElementById('endFrame2').textContent = 'Not set';
+  }
+  updateProcessButton();
+}
+
+function showLoading(show, progress = 0) {
+  let loadingIndicator = document.getElementById('loadingIndicator');
   
-  showLoading(false);
+  // Create loading indicator if it doesn't exist
+  if (!loadingIndicator) {
+    loadingIndicator = document.createElement('div');
+    loadingIndicator.id = 'loadingIndicator';
+    loadingIndicator.className = 'loading-indicator hidden';
+    
+    const progressBar = document.createElement('div');
+    progressBar.className = 'progress-bar';
+    
+    const progressFill = document.createElement('div');
+    progressFill.id = 'progressFill';
+    progressFill.className = 'progress-fill';
+    
+    const progressText = document.createElement('div');
+    progressText.id = 'progressText';
+    progressText.className = 'progress-text';
+    
+    progressBar.appendChild(progressFill);
+    loadingIndicator.appendChild(progressBar);
+    loadingIndicator.appendChild(progressText);
+    document.body.appendChild(loadingIndicator);
+  }
+
+  const progressFill = document.getElementById('progressFill');
+  const progressText = document.getElementById('progressText');
+  
+  loadingIndicator.classList.toggle('hidden', !show);
+  progressFill.style.width = `${progress}%`;
+  progressText.textContent = `Processing frames: ${Math.round(progress)}%`;
 }
 
 async function initPoseDetection() {
-  showLoading(true, 0);
   try {
     const model = poseDetection.SupportedModels.BlazePose;
     const detectorConfig = {
@@ -131,86 +302,10 @@ async function initPoseDetection() {
       solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/pose'
     };
     detector = await poseDetection.createDetector(model, detectorConfig);
-  } finally {
-    showLoading(false);
+  } catch (error) {
+    console.error('Error initializing pose detection:', error);
+    throw error;
   }
-}
-
-function showLoading(show, progress = 0) {
-  const loadingIndicator = document.getElementById('loadingIndicator');
-  const progressFill = document.getElementById('progressFill');
-  const progressText = document.getElementById('progressText');
-  
-  loadingIndicator.classList.toggle('hidden', !show);
-  progressFill.style.width = `${progress}%`;
-  progressText.textContent = `Processing frames: ${Math.round(progress)}%`;
-}
-
-function createFramePair(frameNumber) {
-  const div = document.createElement('div');
-  div.className = 'frame-pair';
-
-  // Create canvas container
-  const canvasContainer = document.createElement('div');
-  canvasContainer.className = 'canvas-container';
-
-  const frameCanvas = document.createElement('canvas');
-  frameCanvas.width = 400;
-  frameCanvas.height = 300;
-  frameCanvas.style.opacity = '1';
-  
-  const poseCanvas = document.createElement('canvas');
-  poseCanvas.width = 400;
-  poseCanvas.height = 300;
-  poseCanvas.style.opacity = '1';
-
-  canvasContainer.appendChild(frameCanvas);
-  canvasContainer.appendChild(poseCanvas);
-  div.appendChild(canvasContainer);
-
-  // Create opacity controls
-  const opacityControls = document.createElement('div');
-  opacityControls.className = 'opacity-controls';
-
-  // Frame opacity slider
-  const frameSlider = document.createElement('div');
-  frameSlider.className = 'opacity-slider';
-  const frameLabel = document.createElement('label');
-  frameLabel.textContent = 'Frame Opacity';
-  const frameInput = document.createElement('input');
-  frameInput.type = 'range';
-  frameInput.min = '0';
-  frameInput.max = '1';
-  frameInput.step = '0.1';
-  frameInput.value = '1';
-  frameInput.addEventListener('input', () => {
-    frameCanvas.style.opacity = frameInput.value;
-  });
-  frameSlider.appendChild(frameLabel);
-  frameSlider.appendChild(frameInput);
-
-  // Pose opacity slider
-  const poseSlider = document.createElement('div');
-  poseSlider.className = 'opacity-slider';
-  const poseLabel = document.createElement('label');
-  poseLabel.textContent = 'Skeleton Opacity';
-  const poseInput = document.createElement('input');
-  poseInput.type = 'range';
-  poseInput.min = '0';
-  poseInput.max = '1';
-  poseInput.step = '0.1';
-  poseInput.value = '1';
-  poseInput.addEventListener('input', () => {
-    poseCanvas.style.opacity = poseInput.value;
-  });
-  poseSlider.appendChild(poseLabel);
-  poseSlider.appendChild(poseInput);
-
-  opacityControls.appendChild(frameSlider);
-  opacityControls.appendChild(poseSlider);
-  div.appendChild(opacityControls);
-
-  return { div, frameCanvas, poseCanvas };
 }
 
 function drawPose(pose, ctx) {

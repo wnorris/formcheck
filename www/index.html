@@ -13,26 +13,47 @@
 <body>
   <div class="container">
     <div class="upload-section">
-      <h3>Upload Video</h3>
-      <input type="file" id="videoUpload" accept="video/*">
+      <div class="video-upload">
+        <h3>Upload Video 1</h3>
+        <input type="file" id="videoUpload1" accept="video/*">
+      </div>
+      <div class="video-upload">
+        <h3>Upload Video 2</h3>
+        <input type="file" id="videoUpload2" accept="video/*">
+      </div>
     </div>
     
-    <div id="frameSelector" class="frame-selector hidden">
-      <h3>Select Motion Range</h3>
+    <div id="frameSelector1" class="frame-selector hidden">
+      <h3>Select Motion Range - Video 1</h3>
       <div class="preview-container">
-        <video id="previewVideo" controls></video>
+        <video id="previewVideo1" controls></video>
       </div>
       <div class="controls">
-        <button id="setStartBtn">Set Start Frame</button>
-        <button id="setEndBtn">Set End Frame</button>
-        <button id="processBtn" disabled>Process Frames</button>
-      </div>
-      <div class="frame-info">
-        <span>Start Frame: <span id="startFrame">Not set</span></span>
-        <span>End Frame: <span id="endFrame">Not set</span></span>
+        <button id="setStartBtn1">Set Start Frame</button>
+        <button id="setEndBtn1">Set End Frame</button>
+        <div class="frame-info">
+          <span>Start Frame: <span id="startFrame1">Not set</span></span>
+          <span>End Frame: <span id="endFrame1">Not set</span></span>
+        </div>
       </div>
     </div>
-    
+
+    <div id="frameSelector2" class="frame-selector hidden">
+      <h3>Select Motion Range - Video 2</h3>
+      <div class="preview-container">
+        <video id="previewVideo2" controls></video>
+      </div>
+      <div class="controls">
+        <button id="setStartBtn2">Set Start Frame</button>
+        <button id="setEndBtn2">Set End Frame</button>
+        <div class="frame-info">
+          <span>Start Frame: <span id="startFrame2">Not set</span></span>
+          <span>End Frame: <span id="endFrame2">Not set</span></span>
+        </div>
+      </div>
+    </div>
+
+    <button id="processBtn" disabled>Process Videos</button>
     <div id="framesContainer" class="frames-container"></div>
 
     <div id="loadingIndicator" class="loading-indicator hidden">
