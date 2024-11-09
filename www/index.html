@@ -17,6 +17,22 @@
       <input type="file" id="videoUpload" accept="video/*">
     </div>
     
+    <div id="frameSelector" class="frame-selector hidden">
+      <h3>Select Motion Range</h3>
+      <div class="preview-container">
+        <video id="previewVideo" controls></video>
+      </div>
+      <div class="controls">
+        <button id="setStartBtn">Set Start Frame</button>
+        <button id="setEndBtn">Set End Frame</button>
+        <button id="processBtn" disabled>Process Frames</button>
+      </div>
+      <div class="frame-info">
+        <span>Start Frame: <span id="startFrame">Not set</span></span>
+        <span>End Frame: <span id="endFrame">Not set</span></span>
+      </div>
+    </div>
+    
     <div id="framesContainer" class="frames-container"></div>
 
     <div id="loadingIndicator" class="loading-indicator hidden">

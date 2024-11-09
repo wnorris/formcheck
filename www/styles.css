@@ -66,3 +66,49 @@ canvas {
 .progress-text {
   font-size: 14px;
 }
+
+.frame-selector {
+  margin-bottom: 20px;
+  padding: 20px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
+
+.frame-selector.hidden {
+  display: none;
+}
+
+.preview-container {
+  margin: 20px 0;
+}
+
+.preview-container video {
+  max-width: 100%;
+  width: 400px;
+  border: 1px solid #ccc;
+}
+
+.controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.frame-info {
+  display: flex;
+  gap: 20px;
+}
+
+button {
+  padding: 8px 16px;
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
