@@ -248,14 +248,23 @@ async function processVideoFrames(video1, frame1Num, frame1Canvas, pose1Canvas,
       const cog1 = calculateCenterOfGravity(pose1);
       const cog2 = calculateCenterOfGravity(pose2);
 
+      // Calculate torso heights
+      const torsoHeight1 = calculateTorsoHeight(pose1);
+      const torsoHeight2 = calculateTorsoHeight(pose2);
+
+      // Calculate scale factors to normalize torso heights
+      const targetHeight = Math.max(torsoHeight1, torsoHeight2);
+      const scale1 = targetHeight / torsoHeight1;
+      const scale2 = targetHeight / torsoHeight2;
+
       // Calculate offset needed to align COGs
       const offset1 = {
-        x: (cog2.x - cog1.x) / 2,
-        y: (cog2.y - cog1.y) / 2
+        x: (cog2.x - cog1.x * scale1) / 2,
+        y: (cog2.y - cog1.y * scale1) / 2
       };
       const offset2 = {
-        x: (cog1.x - cog2.x) / 2,
-        y: (cog1.y - cog2.y) / 2
+        x: (cog1.x - cog2.x * scale2) / 2,
+        y: (cog1.y - cog2.y * scale2) / 2
       };
 
       const ctx1 = pose1Canvas.getContext('2d');
@@ -265,31 +274,53 @@ async function processVideoFrames(video1, frame1Num, frame1Canvas, pose1Canvas,
       ctx1.clearRect(0, 0, pose1Canvas.width, pose1Canvas.height);
       ctx2.clearRect(0, 0, pose2Canvas.width, pose2Canvas.height);
 
-      // Draw pose1 with offset to match pose2's COG
+      // Draw pose1 with offset and scale to match pose2's COG and torso height
       ctx1.save();
       ctx1.translate(offset1.x, offset1.y);
+      ctx1.scale(scale1, scale1);
       drawPose(pose1, ctx1, false);
       ctx1.restore();
 
-      // Draw pose2 with offset to match pose2's COG
+      // Draw pose2 with offset and scale to match pose1's COG and torso height
       ctx2.save();
       ctx2.translate(offset2.x, offset2.y);
+      ctx2.scale(scale2, scale2);
       drawPose(pose2, ctx2, true);
       ctx2.restore();
 
-      // Clear the frame1 canvas and redraw with cog offset.
+      // Clear and redraw frame1 with offset and scale
       frame1Ctx.clearRect(0, 0, frame1Canvas.width, frame1Canvas.height);
+      frame1Ctx.save();
       frame1Ctx.translate(offset1.x, offset1.y);
+      frame1Ctx.scale(scale1, scale1);
       frame1Ctx.drawImage(video1, 0, 0, frame1Canvas.width, frame1Canvas.height);
+      frame1Ctx.restore();
 
-      // Clear the frame2 canvas and redraw with cog offset.
+      // Clear and redraw frame2 with offset and scale
       frame2Ctx.clearRect(0, 0, frame2Canvas.width, frame2Canvas.height);
+      frame2Ctx.save();
       frame2Ctx.translate(offset2.x, offset2.y);
+      frame2Ctx.scale(scale2, scale2);
       frame2Ctx.drawImage(video2, 0, 0, frame2Canvas.width, frame2Canvas.height);
+      frame2Ctx.restore();
     }
   } catch (error) {
     console.error('Error processing frames:', error);
   }
+}
+
+function calculateTorsoHeight(pose) {
+  const leftShoulder = pose.keypoints.find(kp => kp.name === 'left_shoulder');
+  const rightShoulder = pose.keypoints.find(kp => kp.name === 'right_shoulder');
+  const leftHip = pose.keypoints.find(kp => kp.name === 'left_hip');
+  const rightHip = pose.keypoints.find(kp => kp.name === 'right_hip');
+
+  // Calculate midpoints
+  const shoulderMidY = (leftShoulder.y + rightShoulder.y) / 2;
+  const hipMidY = (leftHip.y + rightHip.y) / 2;
+
+  // Return vertical distance between shoulder and hip midpoints
+  return Math.abs(shoulderMidY - hipMidY);
 }
 
 function calculateCenterOfGravity(pose) {
