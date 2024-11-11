@@ -191,11 +191,11 @@ async function processVideos() {
         createComparisonFrame(i);
       framesContainer.appendChild(div);
 
-      // Process both videos
-      await Promise.all([
-        processVideoFrame(video1, frame1, frame1Canvas, pose1Canvas),
-        processVideoFrame(video2, frame2, frame2Canvas, pose2Canvas)
-      ]);
+      // Process both videos together
+      await processVideoFrames(
+        video1, frame1, frame1Canvas, pose1Canvas,
+        video2, frame2, frame2Canvas, pose2Canvas
+      );
 
       const progress = ((i + 1) / totalFrames) * 100;
       showLoading(true, progress);
@@ -208,27 +208,45 @@ async function processVideos() {
   }
 }
 
-async function processVideoFrame(video, frameNum, frameCanvas, poseCanvas) {
-  video.currentTime = frameNum / 30;
-  await new Promise(resolve => {
-    video.onseeked = resolve;
-  });
+async function processVideoFrames(video1, frame1Num, frame1Canvas, pose1Canvas, 
+                                video2, frame2Num, frame2Canvas, pose2Canvas) {
+  // Seek both videos to correct frames
+  video1.currentTime = frame1Num / 30;
+  video2.currentTime = frame2Num / 30;
+  await Promise.all([
+    new Promise(resolve => { video1.onseeked = resolve; }),
+    new Promise(resolve => { video2.onseeked = resolve; })
+  ]);
 
-  const frameCtx = frameCanvas.getContext('2d');
-  frameCtx.drawImage(video, 0, 0, frameCanvas.width, frameCanvas.height);
+  // Draw frames
+  const frame1Ctx = frame1Canvas.getContext('2d');
+  const frame2Ctx = frame2Canvas.getContext('2d');
+  frame1Ctx.drawImage(video1, 0, 0, frame1Canvas.width, frame1Canvas.height);
+  frame2Ctx.drawImage(video2, 0, 0, frame2Canvas.width, frame2Canvas.height);
 
   try {
-    const poses = await detector.estimatePoses(frameCanvas, {
-      maxPoses: 1,
-      flipHorizontal: false,
-      scoreThreshold: 0.3
-    });
+    // Get poses for both frames
+    const [poses1, poses2] = await Promise.all([
+      detector.estimatePoses(frame1Canvas, {
+        maxPoses: 1,
+        flipHorizontal: false,
+        scoreThreshold: 0.3
+      }),
+      detector.estimatePoses(frame2Canvas, {
+        maxPoses: 1,
+        flipHorizontal: false,
+        scoreThreshold: 0.3
+      })
+    ]);
     
-    if (poses.length > 0) {
-      drawPose(poses[0], poseCanvas.getContext('2d'));
+    // Draw poses if detected
+    if (poses1.length > 0 && poses2.length > 0) {
+      // Here you could compare/adjust poses before drawing
+      drawPose(poses1[0], pose1Canvas.getContext('2d'));
+      drawPose(poses2[0], pose2Canvas.getContext('2d'));
     }
   } catch (error) {
-    console.error('Error processing frame:', error);
+    console.error('Error processing frames:', error);
   }
 }
 
