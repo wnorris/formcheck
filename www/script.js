@@ -230,12 +230,12 @@ async function processVideoFrames(video1, frame1Num, frame1Canvas, pose1Canvas,
       detector.estimatePoses(frame1Canvas, {
         maxPoses: 1,
         flipHorizontal: false,
-        scoreThreshold: 0.3
+        scoreThreshold: 0.0
       }),
       detector.estimatePoses(frame2Canvas, {
         maxPoses: 1,
         flipHorizontal: false,
-        scoreThreshold: 0.3
+        scoreThreshold: 0.0
       })
     ]);
     
@@ -268,13 +268,13 @@ async function processVideoFrames(video1, frame1Num, frame1Canvas, pose1Canvas,
       // Draw pose1 with offset to match pose2's COG
       ctx1.save();
       ctx1.translate(offset1.x, offset1.y);
-      drawPose(pose1, ctx1);
+      drawPose(pose1, ctx1, false);
       ctx1.restore();
 
       // Draw pose2 with offset to match pose2's COG
       ctx2.save();
       ctx2.translate(offset2.x, offset2.y);
-      drawPose(pose2, ctx2);
+      drawPose(pose2, ctx2, true);
       ctx2.restore();
 
       // Clear the frame1 canvas and redraw with cog offset.
@@ -380,68 +380,62 @@ async function initPoseDetection() {
   }
 }
 
-function drawPose(pose, ctx) {
+function drawPose(pose, ctx, isPink = false) {
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   
-  const colors = {
-    rightSide: {
-      solid: '#FF6CD6', // Solid neon pink
-      glow: 'rgba(255, 108, 214, 0.2)'
-    },
-    body: {
-      solid: '#40E0D0', // Solid turquoise
-      glow: 'rgba(64, 224, 208, 0.2)'
-    }
+  const color = isPink ? {
+    solid: '#FF6CD6', // Solid neon pink
+    glow: 'rgba(255, 108, 214, 0.2)'
+  } : {
+    solid: '#40E0D0', // Solid turquoise 
+    glow: 'rgba(64, 224, 208, 0.2)'
   };
 
-  // Split connections into body and right arm for layered drawing
-  const bodyConnections = [
+  // All connections in one array
+  const connections = [
     // Body
-    { points: ['nose', 'left_eye'], group: 'body' },
-    { points: ['left_eye', 'left_ear'], group: 'body' },
-    { points: ['nose', 'right_eye'], group: 'body' },
-    { points: ['right_eye', 'right_ear'], group: 'body' },
-    { points: ['left_shoulder', 'right_shoulder'], group: 'body' },
-    { points: ['left_shoulder', 'left_elbow'], group: 'body' },
-    { points: ['left_elbow', 'left_wrist'], group: 'body' },
-    { points: ['left_shoulder', 'left_hip'], group: 'body' },
-    { points: ['right_shoulder', 'right_hip'], group: 'body' },
-    { points: ['left_hip', 'right_hip'], group: 'body' },
-    { points: ['left_hip', 'left_knee'], group: 'body' },
-    { points: ['left_knee', 'left_ankle'], group: 'body' },
-    { points: ['right_hip', 'right_knee'], group: 'body' },
-    { points: ['right_knee', 'right_ankle'], group: 'body' },
+    { points: ['nose', 'left_eye'] },
+    { points: ['left_eye', 'left_ear'] },
+    { points: ['nose', 'right_eye'] },
+    { points: ['right_eye', 'right_ear'] },
+    { points: ['left_shoulder', 'right_shoulder'] },
+    { points: ['left_shoulder', 'left_elbow'] },
+    { points: ['left_elbow', 'left_wrist'] },
+    { points: ['left_shoulder', 'left_hip'] },
+    { points: ['right_shoulder', 'right_hip'] },
+    { points: ['left_hip', 'right_hip'] },
+    { points: ['left_hip', 'left_knee'] },
+    { points: ['left_knee', 'left_ankle'] },
+    { points: ['right_hip', 'right_knee'] },
+    { points: ['right_knee', 'right_ankle'] },
     // Complete foot connections
-    { points: ['left_ankle', 'left_heel'], group: 'body' },
-    { points: ['left_heel', 'left_foot_index'], group: 'body' },
-    { points: ['left_ankle', 'left_foot_index'], group: 'body' },
-    { points: ['right_ankle', 'right_heel'], group: 'body' },
-    { points: ['right_heel', 'right_foot_index'], group: 'body' },
-    { points: ['right_ankle', 'right_foot_index'], group: 'body' }
+    { points: ['left_ankle', 'left_heel'] },
+    { points: ['left_heel', 'left_foot_index'] },
+    { points: ['left_ankle', 'left_foot_index'] },
+    { points: ['right_ankle', 'right_heel'] },
+    { points: ['right_heel', 'right_foot_index'] },
+    { points: ['right_ankle', 'right_foot_index'] },
+    // Arms and hands
+    { points: ['right_shoulder', 'right_elbow'] },
+    { points: ['right_elbow', 'right_wrist'] },
+    { points: ['right_wrist', 'right_pinky'] },
+    { points: ['right_wrist', 'right_index'] },
+    { points: ['right_wrist', 'right_thumb'] },
+    { points: ['right_pinky', 'right_index'] },
+    { points: ['right_index', 'right_thumb'] }
   ];
 
-  const rightArmConnections = [
-    { points: ['right_shoulder', 'right_elbow'], group: 'rightSide' },
-    { points: ['right_elbow', 'right_wrist'], group: 'rightSide' },
-    { points: ['right_wrist', 'right_pinky'], group: 'rightSide' },
-    { points: ['right_wrist', 'right_index'], group: 'rightSide' },
-    { points: ['right_wrist', 'right_thumb'], group: 'rightSide' },
-    { points: ['right_pinky', 'right_index'], group: 'rightSide' },
-    { points: ['right_index', 'right_thumb'], group: 'rightSide' }
-  ];
-
-  function drawConnections(connections) {
+  function drawConnections() {
     for (const connection of connections) {
       const [first, second] = connection.points;
       const firstPoint = pose.keypoints.find(kp => kp.name === first);
       const secondPoint = pose.keypoints.find(kp => kp.name === second);
-      const colorGroup = colors[connection.group];
       
       if (firstPoint && secondPoint && 
           firstPoint.score > 0.3 && secondPoint.score > 0.3) {
         // Draw glow
         ctx.beginPath();
-        ctx.strokeStyle = colorGroup.glow;
+        ctx.strokeStyle = color.glow;
         ctx.lineWidth = 12;
         ctx.lineCap = 'round';
         ctx.moveTo(firstPoint.x, firstPoint.y);
@@ -450,7 +444,7 @@ function drawPose(pose, ctx) {
 
         // Draw solid line
         ctx.beginPath();
-        ctx.strokeStyle = colorGroup.solid;
+        ctx.strokeStyle = color.solid;
         ctx.lineWidth = 3;
         ctx.moveTo(firstPoint.x, firstPoint.y);
         ctx.lineTo(secondPoint.x, secondPoint.y);
@@ -459,33 +453,20 @@ function drawPose(pose, ctx) {
     }
   }
 
-  function drawKeypoints(isRightSide) {
+  function drawKeypoints() {
     for (const keypoint of pose.keypoints) {
       if (keypoint.score > 0.3) {
-        const isRightArm = [
-          'right_shoulder', 
-          'right_elbow', 
-          'right_wrist',
-          'right_pinky',
-          'right_index',
-          'right_thumb'
-        ].includes(keypoint.name);
-        
-        if (isRightArm === isRightSide) {
-          const colorGroup = isRightArm ? colors.rightSide : colors.body;
-          
-          // Draw glow
-          ctx.beginPath();
-          ctx.fillStyle = colorGroup.glow;
-          ctx.arc(keypoint.x, keypoint.y, 8, 0, 2 * Math.PI);
-          ctx.fill();
+        // Draw glow
+        ctx.beginPath();
+        ctx.fillStyle = color.glow;
+        ctx.arc(keypoint.x, keypoint.y, 8, 0, 2 * Math.PI);
+        ctx.fill();
 
-          // Draw solid point
-          ctx.beginPath();
-          ctx.fillStyle = colorGroup.solid;
-          ctx.arc(keypoint.x, keypoint.y, 3, 0, 2 * Math.PI);
-          ctx.fill();
-        }
+        // Draw solid point
+        ctx.beginPath();
+        ctx.fillStyle = color.solid;
+        ctx.arc(keypoint.x, keypoint.y, 3, 0, 2 * Math.PI);
+        ctx.fill();
       }
     }
   }
@@ -496,11 +477,7 @@ function drawPose(pose, ctx) {
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
 
-  // Draw body first
-  drawConnections(bodyConnections);
-  drawKeypoints(false);
-
-  // Draw right arm on top
-  drawConnections(rightArmConnections);
-  drawKeypoints(true);
+  // Draw everything in one pass
+  drawConnections();
+  drawKeypoints();
 }
