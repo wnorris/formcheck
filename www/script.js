@@ -249,9 +249,13 @@ async function processVideoFrames(video1, frame1Num, frame1Canvas, pose1Canvas,
       const cog2 = calculateCenterOfGravity(pose2);
 
       // Calculate offset needed to align COGs
-      const offset = {
-        x: cog2.x - cog1.x,
-        y: cog2.y - cog1.y
+      const offset1 = {
+        x: (cog2.x - cog1.x) / 2,
+        y: (cog2.y - cog1.y) / 2
+      };
+      const offset2 = {
+        x: (cog1.x - cog2.x) / 2,
+        y: (cog1.y - cog2.y) / 2
       };
 
       const ctx1 = pose1Canvas.getContext('2d');
@@ -263,17 +267,25 @@ async function processVideoFrames(video1, frame1Num, frame1Canvas, pose1Canvas,
 
       // Draw pose1 with offset to match pose2's COG
       ctx1.save();
-      ctx1.translate(offset.x, offset.y);
+      ctx1.translate(offset1.x, offset1.y);
       drawPose(pose1, ctx1);
       ctx1.restore();
 
-      // Draw pose2 normally
+      // Draw pose2 with offset to match pose2's COG
+      ctx2.save();
+      ctx2.translate(offset2.x, offset2.y);
       drawPose(pose2, ctx2);
+      ctx2.restore();
 
       // Clear the frame1 canvas and redraw with cog offset.
       frame1Ctx.clearRect(0, 0, frame1Canvas.width, frame1Canvas.height);
-      frame1Ctx.translate(offset.x, offset.y);
+      frame1Ctx.translate(offset1.x, offset1.y);
       frame1Ctx.drawImage(video1, 0, 0, frame1Canvas.width, frame1Canvas.height);
+
+      // Clear the frame2 canvas and redraw with cog offset.
+      frame2Ctx.clearRect(0, 0, frame2Canvas.width, frame2Canvas.height);
+      frame2Ctx.translate(offset2.x, offset2.y);
+      frame2Ctx.drawImage(video2, 0, 0, frame2Canvas.width, frame2Canvas.height);
     }
   } catch (error) {
     console.error('Error processing frames:', error);
