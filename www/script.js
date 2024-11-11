@@ -101,8 +101,8 @@ function createComparisonFrame(frameNum) {
   });
 
   // Set initial opacities
-  frame1Canvas.style.opacity = '0.5';
-  frame2Canvas.style.opacity = '0.5';
+  frame1Canvas.style.opacity = '0.0';
+  frame2Canvas.style.opacity = '0.0';
   pose1Canvas.style.opacity = '1';
   pose2Canvas.style.opacity = '1';
 
@@ -118,8 +118,8 @@ function createComparisonFrame(frameNum) {
 
   // Create opacity controls for all layers
   const opacityControls = createOpacityControls([
-    { label: 'Video 1 Frame', canvas: frame1Canvas, defaultValue: 0.5 },
-    { label: 'Video 2 Frame', canvas: frame2Canvas, defaultValue: 0.5 },
+    { label: 'Video 1 Frame', canvas: frame1Canvas, defaultValue: 0.0 },
+    { label: 'Video 2 Frame', canvas: frame2Canvas, defaultValue: 0.0 },
     { label: 'Video 1 Skeleton', canvas: pose1Canvas, defaultValue: 1.0 },
     { label: 'Video 2 Skeleton', canvas: pose2Canvas, defaultValue: 1.0 }
   ]);
@@ -241,13 +241,55 @@ async function processVideoFrames(video1, frame1Num, frame1Canvas, pose1Canvas,
     
     // Draw poses if detected
     if (poses1.length > 0 && poses2.length > 0) {
-      // Here you could compare/adjust poses before drawing
-      drawPose(poses1[0], pose1Canvas.getContext('2d'));
-      drawPose(poses2[0], pose2Canvas.getContext('2d'));
+      const pose1 = poses1[0];
+      const pose2 = poses2[0];
+
+      // Calculate centers of gravity
+      const cog1 = calculateCenterOfGravity(pose1);
+      const cog2 = calculateCenterOfGravity(pose2);
+
+      // Calculate offset needed to align COGs
+      const offset = {
+        x: cog2.x - cog1.x,
+        y: cog2.y - cog1.y
+      };
+
+      const ctx1 = pose1Canvas.getContext('2d');
+      const ctx2 = pose2Canvas.getContext('2d');
+
+      // Clear canvases
+      ctx1.clearRect(0, 0, pose1Canvas.width, pose1Canvas.height);
+      ctx2.clearRect(0, 0, pose2Canvas.width, pose2Canvas.height);
+
+      // Draw pose1 with offset to match pose2's COG
+      ctx1.save();
+      ctx1.translate(offset.x, offset.y);
+      drawPose(pose1, ctx1);
+      ctx1.restore();
+
+      // Draw pose2 normally
+      drawPose(pose2, ctx2);
+
+      // Clear the frame1 canvas and redraw with cog offset.
+      frame1Ctx.clearRect(0, 0, frame1Canvas.width, frame1Canvas.height);
+      frame1Ctx.translate(offset.x, offset.y);
+      frame1Ctx.drawImage(video1, 0, 0, frame1Canvas.width, frame1Canvas.height);
     }
   } catch (error) {
     console.error('Error processing frames:', error);
   }
+}
+
+function calculateCenterOfGravity(pose) {
+  const leftShoulder = pose.keypoints.find(kp => kp.name === 'left_shoulder');
+  const rightShoulder = pose.keypoints.find(kp => kp.name === 'right_shoulder');
+  const leftHip = pose.keypoints.find(kp => kp.name === 'left_hip');
+  const rightHip = pose.keypoints.find(kp => kp.name === 'right_hip');
+
+  const x = (leftShoulder.x + rightShoulder.x + leftHip.x + rightHip.x) / 4;
+  const y = (leftShoulder.y + rightShoulder.y + leftHip.y + rightHip.y) / 4;
+
+  return { x, y };
 }
 
 function updateProcessButton() {
