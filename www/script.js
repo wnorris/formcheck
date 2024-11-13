@@ -7,7 +7,7 @@ let currentFrameIndex = 0;
 
 // Update opacity defaults
 let opacityValues = {
-  frame1: 0.5,
+  frame1: 1.0,
   frame2: 0.5,
   pose1: 1.0,
   pose2: 1.0
@@ -106,8 +106,8 @@ function createComparisonFrame(frameNum) {
     canvas.style.left = '0';
   });
 
-  frame1Canvas.style.opacity = '0.0';
-  frame2Canvas.style.opacity = '0.0';
+  frame1Canvas.style.opacity = '1.0';
+  frame2Canvas.style.opacity = '0.5';
   pose1Canvas.style.opacity = '1';
   pose2Canvas.style.opacity = '1';
 
