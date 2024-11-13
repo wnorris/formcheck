@@ -82,6 +82,7 @@ function createComparisonFrame(frameNum) {
   const comparisonContainer = document.createElement('div');
   comparisonContainer.className = 'comparison-container';
 
+  // Create the existing 2D view container
   const canvasContainer = document.createElement('div');
   canvasContainer.className = 'canvas-container';
 
@@ -91,7 +92,6 @@ function createComparisonFrame(frameNum) {
   const pose1Canvas = document.createElement('canvas');
   const pose2Canvas = document.createElement('canvas');
 
-  // Set initial properties for all canvases
   [frame1Canvas, frame2Canvas, pose1Canvas, pose2Canvas].forEach(canvas => {
     canvas.width = 400;
     canvas.height = 300;
@@ -100,38 +100,44 @@ function createComparisonFrame(frameNum) {
     canvas.style.left = '0';
   });
 
-  // Set initial opacities
   frame1Canvas.style.opacity = '0.0';
   frame2Canvas.style.opacity = '0.0';
   pose1Canvas.style.opacity = '1';
   pose2Canvas.style.opacity = '1';
 
-  // Set z-index to ensure poses are on top
   frame1Canvas.style.zIndex = '1';
   frame2Canvas.style.zIndex = '2';
   pose1Canvas.style.zIndex = '3';
   pose2Canvas.style.zIndex = '4';
 
-  // Add canvases in the correct order
   canvasContainer.append(frame1Canvas, frame2Canvas, pose1Canvas, pose2Canvas);
-  comparisonContainer.appendChild(canvasContainer);
 
-  // Create opacity controls for all layers
-  const opacityControls = createOpacityControls([
-    { label: 'Video 1 Frame', canvas: frame1Canvas, defaultValue: 0.0 },
-    { label: 'Video 2 Frame', canvas: frame2Canvas, defaultValue: 0.0 },
-    { label: 'Video 1 Skeleton', canvas: pose1Canvas, defaultValue: 1.0 },
-    { label: 'Video 2 Skeleton', canvas: pose2Canvas, defaultValue: 1.0 }
-  ]);
+  // Create 3D view container
+  const pose3dContainer = document.createElement('div');
+  pose3dContainer.className = 'pose-3d-container';
+  pose3dContainer.id = `pose3d-${frameNum}`;
 
-  div.append(comparisonContainer, opacityControls);
+  // Add all containers to the comparison container
+  comparisonContainer.append(
+    canvasContainer, 
+    createOpacityControls([
+      { label: 'Video 1 Frame', canvas: frame1Canvas, defaultValue: 0.0 },
+      { label: 'Video 2 Frame', canvas: frame2Canvas, defaultValue: 0.0 },
+      { label: 'Video 1 Skeleton', canvas: pose1Canvas, defaultValue: 1.0 },
+      { label: 'Video 2 Skeleton', canvas: pose2Canvas, defaultValue: 1.0 }
+    ]),
+    pose3dContainer
+  );
+
+  div.appendChild(comparisonContainer);
 
   return {
     div,
     frame1Canvas,
     pose1Canvas,
     frame2Canvas,
-    pose2Canvas
+    pose2Canvas,
+    pose3dContainer
   };
 }
 
@@ -187,14 +193,15 @@ async function processVideos() {
       const frame1 = Math.floor(startFrameNum1 + (i * step1));
       const frame2 = Math.floor(startFrameNum2 + (i * step2));
 
-      const { div, frame1Canvas, pose1Canvas, frame2Canvas, pose2Canvas } = 
+      const { div, frame1Canvas, pose1Canvas, frame2Canvas, pose2Canvas, pose3dContainer } = 
         createComparisonFrame(i);
       framesContainer.appendChild(div);
 
       // Process both videos together
       await processVideoFrames(
         video1, frame1, frame1Canvas, pose1Canvas,
-        video2, frame2, frame2Canvas, pose2Canvas
+        video2, frame2, frame2Canvas, pose2Canvas,
+        pose3dContainer
       );
 
       const progress = ((i + 1) / totalFrames) * 100;
@@ -209,7 +216,8 @@ async function processVideos() {
 }
 
 async function processVideoFrames(video1, frame1Num, frame1Canvas, pose1Canvas, 
-                                video2, frame2Num, frame2Canvas, pose2Canvas) {
+                                video2, frame2Num, frame2Canvas, pose2Canvas,
+                                pose3dContainer) {
   // Seek both videos to correct frames
   video1.currentTime = frame1Num / 30;
   video2.currentTime = frame2Num / 30;
@@ -303,6 +311,10 @@ async function processVideoFrames(video1, frame1Num, frame1Canvas, pose1Canvas,
       frame2Ctx.scale(scale2, scale2);
       frame2Ctx.drawImage(video2, 0, 0, frame2Canvas.width, frame2Canvas.height);
       frame2Ctx.restore();
+
+      // Initialize and update 3D visualization
+      const visualizer = new PoseVisualizer(pose3dContainer.id);
+      visualizer.updatePoses(poses1[0], poses2[0]);
     }
   } catch (error) {
     console.error('Error processing frames:', error);
