@@ -2,15 +2,21 @@ let detector = null;
 let startFrameNum1 = null, endFrameNum1 = null;
 let startFrameNum2 = null, endFrameNum2 = null;
 let video1Ready = false, video2Ready = false;
+let isVideoSetupCollapsed = false;
+let currentFrameIndex = 0;
+
+// Update opacity defaults
+let opacityValues = {
+  frame1: 0.5,
+  frame2: 0.5,
+  pose1: 1.0,
+  pose2: 1.0
+};
 
 document.addEventListener('DOMContentLoaded', () => {
   setupVideoUpload(1);
   setupVideoUpload(2);
-  
-  const processBtn = document.getElementById('processBtn');
-  processBtn.addEventListener('click', async () => {
-    await processVideos();
-  });
+  setupCardCollapse();
 });
 
 function setupVideoUpload(videoNum) {
@@ -188,16 +194,20 @@ async function processVideos() {
     const totalFrames = Math.min(50, Math.min(frameCount1, frameCount2));
     const step1 = frameCount1 / totalFrames;
     const step2 = frameCount2 / totalFrames;
-
+    
+    // Setup frame navigation with the calculated totalFrames
+    setupFrameNavigation(totalFrames);
+    
     for (let i = 0; i < totalFrames; i++) {
       const frame1 = Math.floor(startFrameNum1 + (i * step1));
       const frame2 = Math.floor(startFrameNum2 + (i * step2));
 
       const { div, frame1Canvas, pose1Canvas, frame2Canvas, pose2Canvas, pose3dContainer } = 
         createComparisonFrame(i);
+      div.dataset.index = i;
+      div.style.display = i === 0 ? 'block' : 'none';
       framesContainer.appendChild(div);
 
-      // Process both videos together
       await processVideoFrames(
         video1, frame1, frame1Canvas, pose1Canvas,
         video2, frame2, frame2Canvas, pose2Canvas,
@@ -207,6 +217,7 @@ async function processVideos() {
       const progress = ((i + 1) / totalFrames) * 100;
       showLoading(true, progress);
     }
+
   } catch (error) {
     console.error('Error processing videos:', error);
     alert('An error occurred while processing the videos. Please try again.');
@@ -523,4 +534,65 @@ function drawPose(pose, ctx, isPink = false) {
   // Draw everything in one pass
   drawConnections();
   drawKeypoints();
+}
+
+function setupCardCollapse() {
+  const cardHeader = document.querySelector('.card-header');
+  const cardContent = document.querySelector('.card-content');
+  const toggleBtn = document.querySelector('.toggle-btn');
+
+  function toggleCollapse() {
+    isVideoSetupCollapsed = !isVideoSetupCollapsed;
+    cardContent.classList.toggle('collapsed', isVideoSetupCollapsed);
+    toggleBtn.classList.toggle('collapsed', isVideoSetupCollapsed);
+  }
+
+  cardHeader.addEventListener('click', toggleCollapse);
+
+  // Update processBtn click handler
+  const processBtn = document.getElementById('processBtn');
+  processBtn.addEventListener('click', async () => {
+    toggleCollapse();
+    await processVideos();
+  });
+}
+
+function showFrame(index, totalFrames) {
+  const frames = document.querySelectorAll('.frame-pair');
+  frames.forEach((frame, i) => {
+    frame.style.display = i === index ? 'block' : 'none';
+  });
+  
+  const prevBtn = document.getElementById('prevFrameBtn');
+  const nextBtn = document.getElementById('nextFrameBtn');
+  const frameIndicator = document.getElementById('frameIndicator');
+  
+  prevBtn.disabled = index === 0;
+  nextBtn.disabled = index === totalFrames - 1;
+  frameIndicator.textContent = `Frame ${index + 1} of ${totalFrames}`;
+}
+
+function setupFrameNavigation(totalFrames) {
+  // Wait for frames to be created before setting up navigation
+  setTimeout(() => {
+    const prevBtn = document.getElementById('prevFrameBtn');
+    const nextBtn = document.getElementById('nextFrameBtn');
+    
+    prevBtn.onclick = () => {
+      if (currentFrameIndex > 0) {
+        currentFrameIndex--;
+        showFrame(currentFrameIndex, totalFrames);
+      }
+    };
+    
+    nextBtn.onclick = () => {
+      if (currentFrameIndex < totalFrames - 1) {
+        currentFrameIndex++;
+        showFrame(currentFrameIndex, totalFrames);
+      }
+    };
+
+    // Show first frame
+    showFrame(0, totalFrames);
+  }, 0);
 }

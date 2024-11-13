@@ -14,50 +14,76 @@
 </head>
 <body>
   <div class="container">
-    <div class="upload-section">
-      <div class="video-upload">
-        <h3>Upload Video 1</h3>
-        <input type="file" id="videoUpload1" accept="video/*">
+    <div class="video-setup-card">
+      <div class="card-header">
+        <h2>Video Selection</h2>
+        <button class="toggle-btn">▼</button>
       </div>
-      <div class="video-upload">
-        <h3>Upload Video 2</h3>
-        <input type="file" id="videoUpload2" accept="video/*">
+      
+      <div class="card-content">
+        <div class="upload-section">
+          <div class="video-upload">
+            <h3>Upload Video 1</h3>
+            <input type="file" id="videoUpload1" accept="video/*">
+          </div>
+        </div>
+        
+        <div id="frameSelector1" class="frame-selector hidden">
+          <h3>Select Motion Range - Video 1</h3>
+          <div class="preview-container">
+            <video id="previewVideo1" controls></video>
+          </div>
+          <div class="controls">
+            <button id="setStartBtn1">Set Start Frame</button>
+            <button id="setEndBtn1">Set End Frame</button>
+            <div class="frame-info">
+              <span>Start Frame: <span id="startFrame1">Not set</span></span>
+              <span>End Frame: <span id="endFrame1">Not set</span></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="upload-section">
+          <div class="video-upload">
+            <h3>Upload Video 2</h3>
+            <input type="file" id="videoUpload2" accept="video/*">
+          </div>
+        </div>
+
+        <div id="frameSelector2" class="frame-selector hidden">
+          <h3>Select Motion Range - Video 2</h3>
+          <div class="preview-container">
+            <video id="previewVideo2" controls></video>
+          </div>
+          <div class="controls">
+            <button id="setStartBtn2">Set Start Frame</button>
+            <button id="setEndBtn2">Set End Frame</button>
+            <div class="frame-info">
+              <span>Start Frame: <span id="startFrame2">Not set</span></span>
+              <span>End Frame: <span id="endFrame2">Not set</span></span>
+            </div>
+          </div>
+        </div>
+
+        <button id="processBtn" disabled>Process Videos</button>
       </div>
     </div>
     
-    <div id="frameSelector1" class="frame-selector hidden">
-      <h3>Select Motion Range - Video 1</h3>
-      <div class="preview-container">
-        <video id="previewVideo1" controls></video>
+    <div class="frames-card">
+      <div class="card-header">
+        <h2>Frame Comparison</h2>
+        <button class="toggle-btn">▼</button>
       </div>
-      <div class="controls">
-        <button id="setStartBtn1">Set Start Frame</button>
-        <button id="setEndBtn1">Set End Frame</button>
-        <div class="frame-info">
-          <span>Start Frame: <span id="startFrame1">Not set</span></span>
-          <span>End Frame: <span id="endFrame1">Not set</span></span>
+      <div class="card-content">
+        <div id="framesContainer" class="frames-container"></div>
+        <div class="frame-navigation">
+          <button id="prevFrameBtn" disabled>← Previous Frame</button>
+          <span id="frameIndicator" class="frame-indicator">Frame 1 of 1</span>
+          <button id="nextFrameBtn">Next Frame →</button>
         </div>
       </div>
     </div>
-
-    <div id="frameSelector2" class="frame-selector hidden">
-      <h3>Select Motion Range - Video 2</h3>
-      <div class="preview-container">
-        <video id="previewVideo2" controls></video>
-      </div>
-      <div class="controls">
-        <button id="setStartBtn2">Set Start Frame</button>
-        <button id="setEndBtn2">Set End Frame</button>
-        <div class="frame-info">
-          <span>Start Frame: <span id="startFrame2">Not set</span></span>
-          <span>End Frame: <span id="endFrame2">Not set</span></span>
-        </div>
-      </div>
-    </div>
-
-    <button id="processBtn" disabled>Process Videos</button>
-    <div id="framesContainer" class="frames-container"></div>
-
+    
     <div id="loadingIndicator" class="loading-indicator hidden">
       <div class="progress-bar">
         <div id="progressFill" class="progress-fill"></div>
